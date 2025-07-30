@@ -13,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @WebSocketGateway({
   cors: {
-    origin: 'https://talk.solar-ict.com/',
+    origin: 'https://talk.solar-ict.com',
     credentials: true,
   },
 })

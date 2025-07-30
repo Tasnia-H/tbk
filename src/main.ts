@@ -6,7 +6,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
   app.enableCors({
-    origin: 'https://talk.solar-ict.com/', // Frontend URL
+    origin: 'https://talk.solar-ict.com', // Frontend URL
     credentials: true,
   });
   
