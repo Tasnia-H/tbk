@@ -4,6 +4,6 @@ import { Controller, Get } from '@nestjs/common';
 export class AppController {
   @Get()
   getHello(): string {
-    return 'Backend is connected successfully!';
+    return 'Backend is connected successfully to 25!';
   }
 }
