@@ -87,6 +87,160 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // File Transfer WebRTC Signaling Handlers
+  @SubscribeMessage('file_webrtc_offer')
+  handleFileWebRTCOffer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { targetUserId: string; offer: any },
+  ) {
+    try {
+      const token = client.handshake.auth.token;
+      const payload = this.jwtService.verify(token);
+      const senderId = payload.sub;
+      
+      const targetSocketId = this.connectedUsers.get(data.targetUserId);
+      if (targetSocketId) {
+        this.server.to(targetSocketId).emit('file_webrtc_offer', {
+          userId: senderId,
+          offer: data.offer,
+        });
+        console.log(`File WebRTC offer forwarded from ${senderId} to ${data.targetUserId}`);
+      }
+    } catch (error) {
+      console.error('Error handling file WebRTC offer:', error);
+    }
+  }
+
+  @SubscribeMessage('file_webrtc_answer')
+  handleFileWebRTCAnswer(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { targetUserId: string; answer: any },
+  ) {
+    try {
+      const token = client.handshake.auth.token;
+      const payload = this.jwtService.verify(token);
+      const senderId = payload.sub;
+      
+      const targetSocketId = this.connectedUsers.get(data.targetUserId);
+      if (targetSocketId) {
+        this.server.to(targetSocketId).emit('file_webrtc_answer', {
+          userId: senderId,
+          answer: data.answer,
+        });
+        console.log(`File WebRTC answer forwarded from ${senderId} to ${data.targetUserId}`);
+      }
+    } catch (error) {
+      console.error('Error handling file WebRTC answer:', error);
+    }
+  }
+
+  @SubscribeMessage('file_webrtc_ice_candidate')
+  handleFileWebRTCIceCandidate(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { targetUserId: string; candidate: any },
+  ) {
+    try {
+      const token = client.handshake.auth.token;
+      const payload = this.jwtService.verify(token);
+      const senderId = payload.sub;
+      
+      const targetSocketId = this.connectedUsers.get(data.targetUserId);
+      if (targetSocketId) {
+        this.server.to(targetSocketId).emit('file_webrtc_ice_candidate', {
+          userId: senderId,
+          candidate: data.candidate,
+        });
+      }
+    } catch (error) {
+      console.error('Error handling file WebRTC ICE candidate:', error);
+    }
+  }
+
+  // File Message Handler
+  @SubscribeMessage('send_file_message')
+  async handleFileMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { 
+      receiverId: string; 
+      content: string;
+      fileName: string;
+      fileSize: number;
+      fileType: string;
+    },
+  ) {
+    try {
+      const token = client.handshake.auth.token;
+      const payload = this.jwtService.verify(token);
+      const senderId = payload.sub;
+
+      // Check if receiver is online
+      const receiverSocketId = this.connectedUsers.get(data.receiverId);
+      const isReceiverOnline = !!receiverSocketId;
+
+      // Create file message record
+      const message = await this.prisma.message.create({
+        data: {
+          content: data.content,
+          type: 'file',
+          fileName: data.fileName,
+          fileSize: data.fileSize,
+          fileType: data.fileType,
+          senderId,
+          receiverId: data.receiverId,
+        },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              avatar: true,
+            },
+          },
+          receiver: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              avatar: true,
+            },
+          },
+        },
+      });
+
+      // Notify receiver if online
+      if (receiverSocketId) {
+        this.server.to(receiverSocketId).emit('receive_message', {
+          ...message,
+          isNewMessage: true,
+          isReceiverOnline,
+        });
+        await this.sendUnreadCounts(data.receiverId);
+      }
+
+      // Send confirmation to sender with receiver online status
+      client.emit('message_sent', {
+        ...message,
+        isReceiverOnline,
+      });
+    } catch (error) {
+      client.emit('error', { message: 'Failed to send file message' });
+    }
+  }
+
+  // Check if user is online
+  @SubscribeMessage('check_user_online')
+  handleCheckUserOnline(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string },
+  ) {
+    const isOnline = this.connectedUsers.has(data.userId);
+    client.emit('user_online_status', {
+      userId: data.userId,
+      isOnline,
+    });
+  }
+
   // WebRTC Call Handlers
   @SubscribeMessage('initiate_call')
   async handleInitiateCall(
@@ -278,7 +432,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.server.sockets.sockets.has(socketId);
   }
 
-  // WebRTC Signaling - Enhanced with better error handling
+  // WebRTC Signaling
   @SubscribeMessage('webrtc_offer')
   handleWebRTCOffer(
     @ConnectedSocket() client: Socket,
@@ -395,7 +549,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // Message handling methods (existing)
+  // Message handling methods
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: Socket,
@@ -411,6 +565,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
           content: data.content,
           senderId,
           receiverId: data.receiverId,
+          type: 'text',
         },
         include: {
           sender: {
@@ -418,6 +573,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
               id: true,
               username: true,
               email: true,
+              avatar: true,
             },
           },
           receiver: {
@@ -425,6 +581,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
               id: true,
               username: true,
               email: true,
+              avatar: true,
             },
           },
         },
@@ -474,6 +631,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
               id: true,
               username: true,
               email: true,
+              avatar: true,
             },
           },
           receiver: {
@@ -481,6 +639,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
               id: true,
               username: true,
               email: true,
+              avatar: true,
             },
           },
         },

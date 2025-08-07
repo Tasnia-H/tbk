@@ -30,7 +30,14 @@ model Message {
   content   String
   createdAt DateTime @default(now())
   isRead    Boolean  @default(false)
-
+  
+  // File-related fields
+  type      String   @default("text") // "text" or "file"
+  fileName  String?  // Original file name
+  fileSize  Int?     // File size in bytes
+  fileType  String?  // MIME type
+  fileUrl   String?  // URL/path for stored files (fallback)
+  
   senderId   String
   receiverId String
 
