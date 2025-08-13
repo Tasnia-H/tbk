@@ -49,7 +49,7 @@ model Message {
 
 model Call {
   id        String   @id @default(cuid())
-  type      String   // "audio" or "video"
+  type      String   // "audio", "video", or "screen"
   status    String   // "initiated", "accepted", "rejected", "ended", "missed"
   duration  Int?     // Duration in seconds
   createdAt DateTime @default(now())

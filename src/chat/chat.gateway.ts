@@ -245,7 +245,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('initiate_call')
   async handleInitiateCall(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { receiverId: string; type: 'audio' | 'video' },
+    @MessageBody() data: { receiverId: string; type: 'audio' | 'video' | 'screen' },
   ) {
     try {
       const token = client.handshake.auth.token;
